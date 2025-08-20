@@ -1,0 +1,244 @@
+@startuml C1_SystemContext
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+title System Context Diagram - Integration Platform (C1)
+
+Person(user, "User", "End user accessing government services through web interface")
+
+System(frontendSystem, "Frontend System", "User-facing web application system")
+System(integrationPlatform, "Integration Platform", "Core integration platform for government services")
+System_Ext(gsn, "Government Services Network (GSN)", "External government agencies and services")
+System_Ext(hrsd, "HRSD System", "Human Resources and Social Development system")
+System_Ext(thirdParties, "Third Party Systems", "External third-party service providers")
+
+Rel(user, frontendSystem, "Uses", "HTTPS")
+Rel(frontendSystem, integrationPlatform, "Calls", "HTTPS")
+Rel(hrsd, gsn, "Integrates with", "HTTPS")
+Rel(integrationPlatform, hrsd, "Synchronizes with", "HTTPS/ODBC")
+Rel(integrationPlatform, thirdParties, "Connects to", "HTTPS")
+
+@enduml
+
+@startuml C2_Container
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title Container Diagram - Frontend System and Integration Platform (C2)
+
+Person(user, "User", "End user accessing the system")
+
+System_Boundary(frontendSystem, "Frontend System") {
+    Container(spa, "Frontend SPA", "React/Angular", "Single Page Application for user interface")
+    Container(bff, "Backend For Frontend", "Node.js/Java", "API gateway and aggregation layer for frontend")
+}
+
+System_Boundary(integrationPlatform, "Integration Platform") {
+    Container(apiConnect, "IBM API Connect", "IBM API Connect", "API Management and Gateway platform")
+    Container(appConnect, "IBM App Connect", "IBM App Connect", "Integration and orchestration platform")
+    Container(ibmMQ, "IBM MQ", "IBM MQ", "Message queuing and reliable messaging")
+    Container(ibmODM, "IBM ODM", "IBM ODM", "Business rules management and decision engine")
+    Container(dataPower, "DataPower Gateway", "IBM DataPower", "Security gateway and transformation appliance")
+    ContainerDb(qiwaDB, "QIWA Database", "Oracle/PostgreSQL", "Core business data storage")
+    ContainerDb(hrsdReplica, "HRSD Replica Database", "Oracle/PostgreSQL", "Replicated HRSD data for performance")
+    ContainerDb(paymentsDB, "Payments Database", "Oracle/PostgreSQL", "Payment transactions and records")
+}
+
+System_Boundary(hrsd, "HRSD System") {
+    Container_Ext(hrsdDataPower, "HRSD DataPower", "IBM DataPower", "HRSD security gateway")
+    ContainerDb_Ext(hrsdDatabase, "HRSD Database", "Oracle", "HRSD core database")
+    Container_Ext(hrsdBackend, "HRSD Backend", "Java/.NET", "HRSD application services")
+}
+
+System_Boundary(gsn, "Government Services Network") {
+    Container_Ext(nic, "NIC", "Government Service", "National Information Center services")
+    Container_Ext(gosi, "GOSI", "Government Service", "General Organization for Social Insurance")
+    Container_Ext(moc, "MOC", "Government Service", "Ministry of Commerce services")
+    Container_Ext(mof, "MOF", "Government Service", "Ministry of Finance services")
+    Container_Ext(otherAgencies, "Other Agencies", "Government Service", "Additional government service providers")
+}
+
+System_Ext(thirdParties, "Third Party Systems", "External third-party service providers")
+
+' Frontend to Integration Platform flow
+Rel(user, spa, "Accesses", "HTTPS")
+Rel(spa, bff, "Calls", "HTTPS/REST")
+Rel(bff, apiConnect, "Routes through", "HTTPS/REST")
+
+' Integration flow
+Rel(apiConnect, appConnect, "Orchestrates via", "HTTPS")
+Rel(appConnect, ibmMQ, "Publishes to", "AMQP")
+Rel(appConnect, ibmODM, "Evaluates rules via", "HTTPS")
+Rel(appConnect, dataPower, "Secure calls via", "HTTPS")
+
+' Database connections
+Rel(appConnect, qiwaDB, "Reads/writes", "ODBC/JDBC")
+Rel(appConnect, hrsdReplica, "Reads from", "ODBC/JDBC")
+Rel(appConnect, paymentsDB, "Manages", "ODBC/JDBC")
+
+' External system connections
+Rel(dataPower, hrsdDataPower, "Communicates with", "HTTPS")
+Rel(hrsdDataPower, hrsdBackend, "Invokes", "HTTPS")
+Rel(hrsdDataPower, hrsdDatabase, "Queries", "ODBC")
+Rel(hrsdDataPower, nic, "Calls", "HTTPS")
+Rel(hrsdDataPower, gosi, "Calls", "HTTPS")
+Rel(hrsdDataPower, moc, "Calls", "HTTPS")
+Rel(hrsdDataPower, mof, "Calls", "HTTPS")
+Rel(hrsdDataPower, otherAgencies, "Calls", "HTTPS")
+
+' Replication flow
+'Rel(hrsdDatabase, dataPower, "Replicates to", "ODBC")
+Rel(dataPower, hrsdReplica, "Updates", "ODBC")
+Rel(dataPower, thirdParties, "Integrates with", "HTTPS")
+
+@enduml
+
+@startuml C2_FrontendSystem
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title Container Diagram - Frontend System (C2)
+
+Person(user, "User", "End user accessing the system")
+System_Ext(integrationPlatform, "Integration Platform", "Core integration platform for government services")
+
+System_Boundary(frontendSystem, "Frontend System") {
+    Container(spa, "Frontend SPA", "React/Angular", "Single Page Application for user interface")
+    Container(bff, "Backend For Frontend", "Node.js/Java", "API gateway and aggregation layer for frontend")
+}
+
+Rel(user, spa, "Accesses", "HTTPS")
+Rel(spa, bff, "Calls", "HTTPS/REST")
+Rel(bff, integrationPlatform, "Routes through", "HTTPS/REST")
+
+@enduml
+
+@startuml C2_IntegrationPlatform
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title Container Diagram - Integration Platform (C2)
+
+System_Ext(frontendSystem, "Frontend System", "User-facing web application system")
+
+System_Boundary(integrationPlatform, "Integration Platform") {
+    Container(apiConnect, "IBM API Connect", "IBM API Connect", "API Management and Gateway platform")
+    Container(appConnect, "IBM App Connect", "IBM App Connect", "Integration and orchestration platform")
+    Container(ibmMQ, "IBM MQ", "IBM MQ", "Message queuing and reliable messaging")
+    Container(ibmODM, "IBM ODM", "IBM ODM", "Business rules management and decision engine")
+    Container(dataPower, "DataPower Gateway", "IBM DataPower", "Security gateway and transformation appliance")
+    ContainerDb(qiwaDB, "QIWA Database", "Oracle/PostgreSQL", "Core business data storage")
+    ContainerDb(hrsdReplica, "HRSD Replica Database", "Oracle/PostgreSQL", "Replicated HRSD data for performance")
+    ContainerDb(paymentsDB, "Payments Database", "Oracle/PostgreSQL", "Payment transactions and records")
+}
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Component Diagram - IBM API Connect (C3)
+
+Container(bff, "Backend For Frontend", "Node.js/Java", "API gateway and aggregation layer")
+Container(appConnect, "IBM App Connect", "IBM App Connect", "Integration and orchestration platform")
+
+Container_Boundary(apiConnect, "IBM API Connect") {
+    Component(apiGateway, "API Gateway", "IBM API Connect Runtime", "Manages API lifecycle and security")
+    Component(apiManager, "API Manager", "IBM API Connect", "API design and lifecycle management")
+    Component(developer_portal, "Developer Portal", "IBM API Connect", "API documentation and developer access")
+    Component(analytics, "Analytics", "IBM API Connect", "API usage analytics and monitoring")
+}
+
+Rel(bff, apiGateway, "Routes through", "HTTPS/REST")
+Rel(apiGateway, appConnect, "Orchestrates via", "HTTPS")
+Rel(apiManager, apiGateway, "Configures", "Internal")
+Rel(developer_portal, apiManager, "Publishes APIs", "Internal")
+Rel(analytics, apiGateway, "Monitors", "Internal")
+
+@enduml
+
+@startuml C3_AppConnect
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Component Diagram - IBM App Connect (C3)
+
+Container(apiConnect, "IBM API Connect", "IBM API Connect", "API Management and Gateway platform")
+Container(ibmMQ, "IBM MQ", "IBM MQ", "Message queuing and reliable messaging")
+Container(ibmODM, "IBM ODM", "IBM ODM", "Business rules management")
+Container(dataPower, "DataPower Gateway", "IBM DataPower", "Security gateway")
+
+Container_Boundary(appConnect, "IBM App Connect") {
+    Component(integrationServer, "Integration Server", "IBM Integration Server", "Handles message transformation and routing")
+    Component(integrationApp, "Integration App", "IBM App Connect App", "Business logic and workflow orchestration")
+    Component(connectors, "Connectors", "IBM App Connect", "Pre-built connectors for various systems")
+    Component(transformations, "Data Transformations", "IBM App Connect", "Data mapping and transformation logic")
+}
+
+Rel(apiConnect, integrationServer, "Routes to", "HTTPS")
+Rel(integrationServer, integrationApp, "Executes", "Internal")
+Rel(integrationApp, connectors, "Uses", "Internal")
+Rel(integrationApp, transformations, "Applies", "Internal")
+Rel(integrationServer, ibmMQ, "Sends messages to", "AMQP")
+Rel(integrationServer, ibmODM, "Evaluates via", "HTTPS")
+Rel(integrationServer, dataPower, "Secure calls via", "HTTPS")
+
+@enduml
+
+@startuml C3_IBMMQ
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Component Diagram - IBM MQ (C3)
+
+Container(appConnect, "IBM App Connect", "IBM App Connect", "Integration and orchestration platform")
+
+Container_Boundary(ibmMQ, "IBM MQ") {
+    Component(queueManager, "Queue Manager", "IBM MQ Queue Manager", "Manages message queues and ensures delivery")
+    Component(queues, "Message Queues", "IBM MQ", "Stores messages for asynchronous processing")
+    Component(channels, "Channels", "IBM MQ", "Communication pathways between queue managers")
+    Component(listeners, "Listeners", "IBM MQ", "Accept incoming connection requests")
+}
+
+Rel(appConnect, queueManager, "Sends messages to", "AMQP")
+Rel(queueManager, queues, "Manages", "Internal")
+Rel(queueManager, channels, "Uses", "Internal")
+Rel(listeners, queueManager, "Routes to", "Internal")
+
+@enduml
+
+@startuml C3_IBMODM
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Component Diagram - IBM ODM (C3)
+
+Container(appConnect, "IBM App Connect", "IBM App Connect", "Integration and orchestration platform")
+
+Container_Boundary(ibmODM, "IBM ODM") {
+    Component(ruleServer, "Rule Server", "IBM ODM Rule Server", "Executes business rules and decisions")
+    Component(ruleEngine, "Rule Engine", "IBM ODM", "Core rule execution engine")
+    Component(decisionService, "Decision Service", "IBM ODM", "Exposes rules as web services")
+    Component(ruleRepository, "Rule Repository", "IBM ODM", "Stores and manages business rules")
+}
+
+Rel(appConnect, ruleServer, "Evaluates via", "HTTPS")
+Rel(ruleServer, ruleEngine, "Uses", "Internal")
+Rel(ruleServer, decisionService, "Exposes via", "Internal")
+Rel(ruleEngine, ruleRepository, "Retrieves rules from", "Internal")
+
+@enduml
+
+@startuml C3_DataPower
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Component Diagram - DataPower Gateway (C3)
+
+Container(appConnect, "IBM App Connect", "IBM App Connect", "Integration platform")
+Container_Ext(hrsdDataPower, "HRSD DataPower", "IBM DataPower", "External HRSD gateway")
+System_Ext(thirdParties, "Third Party Systems", "External systems")
+
+Container_Boundary(dataPower, "DataPower Gateway") {
+    Component(securityGateway, "Security Gateway", "IBM DataPower", "Security policy enforcement and authentication")
+    Component(xmlFirewall, "XML Firewall", "IBM DataPower", "XML-based security filtering")
+    Component(transformation, "Message Transformation", "IBM DataPower", "Protocol and message format transformation")
+    Component(routing, "Message Routing", "IBM DataPower", "Intelligent message routing")
+}
+
+Rel(appConnect, securityGateway, "Secure calls via", "HTTPS")
+Rel(securityGateway, xmlFirewall, "Filters through", "Internal")
+Rel(securityGateway, transformation, "Transforms via", "Internal")
+Rel(transformation, routing, "Routes via", "Internal")
+Rel(routing, hrsdDataPower, "Communicates with", "HTTPS")
+Rel(routing, thirdParties, "Integrates with", "HTTPS")
+
+@enduml

@@ -1,0 +1,326 @@
+@startuml UserServiceRequest_SequenceDiagram
+title User Service Request Flow - Complete Journey
+
+actor User
+participant "Frontend SPA" as SPA
+participant "Backend For Frontend" as BFF
+participant "IBM API Connect" as APIConnect
+participant "IBM App Connect" as AppConnect
+participant "IBM MQ" as MQ
+participant "IBM ODM" as ODM
+participant "DataPower Gateway" as DataPower
+participant "QIWA Database" as QIWADB
+participant "HRSD Replica DB" as HRSDReplica
+
+== User Authentication & Service Request ==
+User -> SPA: 1. Access application (HTTPS)
+activate SPA
+SPA -> BFF: 2. Login request (HTTPS/REST)
+activate BFF
+BFF -> APIConnect: 3. Authentication API call (HTTPS/REST)
+activate APIConnect
+APIConnect -> AppConnect: 4. Process authentication (HTTPS)
+activate AppConnect
+
+AppConnect -> ODM: 5. Validate business rules (HTTPS)
+activate ODM
+ODM -> AppConnect: 6. Return validation result
+deactivate ODM
+
+AppConnect -> QIWADB: 7. Check user credentials (ODBC/JDBC)
+activate QIWADB
+QIWADB -> AppConnect: 8. Return user data
+deactivate QIWADB
+
+AppConnect -> APIConnect: 9. Return authentication status
+deactivate AppConnect
+APIConnect -> BFF: 10. Authentication response
+deactivate APIConnect
+BFF -> SPA: 11. Authentication result
+deactivate BFF
+SPA -> User: 12. Display dashboard/services
+deactivate SPA
+
+== Service Request Processing ==
+User -> SPA: 13. Submit service request (HTTPS)
+activate SPA
+SPA -> BFF: 14. Service request (HTTPS/REST)
+activate BFF
+BFF -> APIConnect: 15. Route service request (HTTPS/REST)
+activate APIConnect
+APIConnect -> AppConnect: 16. Process service request (HTTPS)
+activate AppConnect
+
+AppConnect -> MQ: 17. Queue service request (AMQP)
+activate MQ
+MQ -> AppConnect: 18. Message queued confirmation
+deactivate MQ
+
+AppConnect -> ODM: 19. Apply business rules (HTTPS)
+activate ODM
+ODM -> AppConnect: 20. Return business decision
+deactivate ODM
+
+AppConnect -> HRSDReplica: 21. Query HRSD data (ODBC/JDBC)
+activate HRSDReplica
+HRSDReplica -> AppConnect: 22. Return HRSD data
+deactivate HRSDReplica
+
+AppConnect -> DataPower: 23. External service call (HTTPS)
+activate DataPower
+note right of DataPower: Process external integrations
+DataPower -> AppConnect: 24. External service response
+deactivate DataPower
+
+AppConnect -> QIWADB: 25. Update service status (ODBC/JDBC)
+activate QIWADB
+QIWADB -> AppConnect: 26. Update confirmation
+deactivate QIWADB
+
+AppConnect -> APIConnect: 27. Return service response
+deactivate AppConnect
+APIConnect -> BFF: 28. Service response
+deactivate APIConnect
+BFF -> SPA: 29. Display service result
+deactivate BFF
+SPA -> User: 30. Show completion status
+deactivate SPA
+
+@enduml
+
+@startuml ExternalIntegration_SequenceDiagram
+title External System Integration Flow - HRSD & Government Entity
+
+participant "IBM App Connect" as AppConnect
+participant "DataPower Gateway" as DataPower
+participant "HRSD DataPower" as HRSDDataPower
+participant "HRSD Backend" as HRSDBackend
+participant "HRSD Database" as HRSDDB
+participant "Government Entity" as GovEntity
+participant "Third Parties" as ThirdParty
+participant "HRSD Replica DB" as HRSDReplica
+
+== HRSD Integration Flow ==
+AppConnect -> DataPower: 1. Secure external call (HTTPS)
+activate DataPower
+DataPower -> HRSDDataPower: 2. Route to HRSD (HTTPS)
+activate HRSDDataPower
+
+HRSDDataPower -> HRSDBackend: 3. Invoke HRSD service (HTTPS)
+activate HRSDBackend
+HRSDBackend -> HRSDDB: 4. Query HRSD data (ODBC)
+activate HRSDDB
+HRSDDB -> HRSDBackend: 5. Return data
+deactivate HRSDDB
+HRSDBackend -> HRSDDataPower: 6. Service response
+deactivate HRSDBackend
+
+HRSDDataPower -> HRSDDataPower: 7. Process response
+HRSDDataPower -> DataPower: 8. Return processed data (HTTPS)
+deactivate HRSDDataPower
+
+== Government Entity Integration ==
+DataPower -> HRSDDataPower: 9. Route to Government services (HTTPS)
+activate HRSDDataPower
+
+HRSDDataPower -> GovEntity: 10. Call Government service (HTTPS)
+activate GovEntity
+GovEntity -> HRSDDataPower: 11. Government service response
+deactivate GovEntity
+
+HRSDDataPower -> DataPower: 12. Government services response (HTTPS)
+deactivate HRSDDataPower
+
+== Third Party Integration ==
+DataPower -> ThirdParty: 13. Third party service call (HTTPS)
+activate ThirdParty
+ThirdParty -> DataPower: 14. Third party response
+deactivate ThirdParty
+
+== Data Replication ==
+HRSDDB -> DataPower: 15. Data replication (ODBC)
+DataPower -> HRSDReplica: 16. Update replica (ODBC)
+activate HRSDReplica
+HRSDReplica -> DataPower: 17. Replication confirmation
+deactivate HRSDReplica
+
+DataPower -> AppConnect: 18. Final integration response (HTTPS)
+deactivate DataPower
+
+@enduml
+
+@startuml MessageQueue_SequenceDiagram
+title Message Queue Processing Flow - IBM MQ
+
+participant "IBM App Connect" as AppConnect
+participant "Integration Server" as IntegrationServer
+participant "Queue Manager" as QueueManager
+participant "Message Queues" as Queues
+participant "Channels" as Channels
+participant "Listeners" as Listeners
+participant "IBM ODM" as ODM
+participant "DataPower Gateway" as DataPower
+
+== Message Publishing Flow ==
+AppConnect -> IntegrationServer: 1. Process integration request
+activate IntegrationServer
+IntegrationServer -> QueueManager: 2. Send message (AMQP)
+activate QueueManager
+
+QueueManager -> Queues: 3. Store message
+activate Queues
+Queues -> QueueManager: 4. Message stored confirmation
+deactivate Queues
+
+QueueManager -> IntegrationServer: 5. Message queued confirmation
+deactivate QueueManager
+IntegrationServer -> AppConnect: 6. Queuing successful
+deactivate IntegrationServer
+
+== Asynchronous Message Processing ==
+Listeners -> QueueManager: 7. Check for messages
+activate QueueManager
+QueueManager -> Queues: 8. Retrieve message
+activate Queues
+Queues -> QueueManager: 9. Return message
+deactivate Queues
+
+QueueManager -> Channels: 10. Route message via channel
+activate Channels
+Channels -> IntegrationServer: 11. Deliver message
+activate IntegrationServer
+
+IntegrationServer -> ODM: 12. Apply business rules (HTTPS)
+activate ODM
+ODM -> IntegrationServer: 13. Business rule result
+deactivate ODM
+
+IntegrationServer -> DataPower: 14. External service call (HTTPS)
+activate DataPower
+DataPower -> IntegrationServer: 15. External service response
+deactivate DataPower
+
+IntegrationServer -> QueueManager: 16. Message processed confirmation
+deactivate IntegrationServer
+QueueManager -> Queues: 17. Mark message as processed
+activate Queues
+Queues -> QueueManager: 18. Processing confirmation
+deactivate Queues
+deactivate Channels
+deactivate QueueManager
+
+@enduml
+
+@startuml BusinessRules_SequenceDiagram
+title Business Rules Processing Flow - IBM ODM
+
+participant "IBM App Connect" as AppConnect
+participant "Integration Server" as IntegrationServer
+participant "Rule Server" as RuleServer
+participant "Rule Engine" as RuleEngine
+participant "Decision Service" as DecisionService
+participant "Rule Repository" as RuleRepository
+participant "QIWA Database" as QIWADB
+
+== Business Rules Evaluation ==
+AppConnect -> IntegrationServer: 1. Service request with data
+activate IntegrationServer
+IntegrationServer -> RuleServer: 2. Evaluate business rules (HTTPS)
+activate RuleServer
+
+RuleServer -> RuleRepository: 3. Retrieve applicable rules
+activate RuleRepository
+RuleRepository -> RuleServer: 4. Return rule definitions
+deactivate RuleRepository
+
+RuleServer -> RuleEngine: 5. Execute rules with data
+activate RuleEngine
+RuleEngine -> RuleEngine: 6. Process business logic
+RuleEngine -> RuleServer: 7. Return rule results
+deactivate RuleEngine
+
+RuleServer -> DecisionService: 8. Expose decision as service
+activate DecisionService
+DecisionService -> RuleServer: 9. Decision service response
+deactivate DecisionService
+
+== Data Validation Rules ==
+RuleServer -> QIWADB: 10. Validate against master data (ODBC/JDBC)
+activate QIWADB
+QIWADB -> RuleServer: 11. Return validation results
+deactivate QIWADB
+
+RuleServer -> IntegrationServer: 12. Business rule decision
+deactivate RuleServer
+IntegrationServer -> AppConnect: 13. Rule evaluation complete
+deactivate IntegrationServer
+
+@enduml
+
+@startuml ErrorHandling_SequenceDiagram
+title Error Handling and Recovery Flow
+
+actor User
+participant "Frontend SPA" as SPA
+participant "Backend For Frontend" as BFF
+participant "IBM API Connect" as APIConnect
+participant "IBM App Connect" as AppConnect
+participant "IBM MQ" as MQ
+participant "DataPower Gateway" as DataPower
+participant "HRSD System" as HRSD
+
+== Normal Flow with Error ==
+User -> SPA: 1. Submit request
+activate SPA
+SPA -> BFF: 2. API call (HTTPS/REST)
+activate BFF
+BFF -> APIConnect: 3. Route request (HTTPS/REST)
+activate APIConnect
+APIConnect -> AppConnect: 4. Process request (HTTPS)
+activate AppConnect
+
+AppConnect -> DataPower: 5. External service call (HTTPS)
+activate DataPower
+DataPower -> HRSD: 6. HRSD service call (HTTPS)
+activate HRSD
+
+note right of HRSD: External service failure
+HRSD -> DataPower: 7. Service error response
+deactivate HRSD
+
+== Error Handling Flow ==
+DataPower -> DataPower: 8. Log error & apply retry logic
+DataPower -> AppConnect: 9. Return error with retry info (HTTPS)
+deactivate DataPower
+
+AppConnect -> MQ: 10. Queue failed request for retry (AMQP)
+activate MQ
+MQ -> AppConnect: 11. Message queued for retry
+deactivate MQ
+
+AppConnect -> APIConnect: 12. Return error response with tracking ID
+deactivate AppConnect
+APIConnect -> BFF: 13. Error response (HTTPS)
+deactivate APIConnect
+BFF -> SPA: 14. User-friendly error message
+deactivate BFF
+SPA -> User: 15. Display error with retry option
+deactivate SPA
+
+== Retry Mechanism ==
+MQ -> AppConnect: 16. Retry queued request (AMQP)
+activate AppConnect
+AppConnect -> DataPower: 17. Retry external call (HTTPS)
+activate DataPower
+DataPower -> HRSD: 18. Retry HRSD service (HTTPS)
+activate HRSD
+HRSD -> DataPower: 19. Successful response
+deactivate HRSD
+DataPower -> AppConnect: 20. Success response (HTTPS)
+deactivate DataPower
+AppConnect -> AppConnect: 21. Update request status
+deactivate AppConnect
+
+note over User, HRSD: System automatically notifies user of successful retry
+
+@enduml
