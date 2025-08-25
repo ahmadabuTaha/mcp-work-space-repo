@@ -1,0 +1,121 @@
+@startuml
+title Integration System - Deployment Diagram
+
+
+node "Web Server Tier" as WebTier #LightSkyBlue{
+    node "Web Server 1" as WS1 <<execution environment>> {
+        [NGINX] as WebServer1
+        artifact "Contract SPA Build" as SPABuild1 {
+            [React.js Application] as ReactApp1
+        }
+    }
+
+}
+
+node "Application Server Tier" as AppTier #LightSkyBlue{
+    node "App Server 1" as AS1 <<execution environment>> {
+        [WebSphere/JBoss] as AppServer1
+        artifact "Contract BFF EAR" as BFFEar1 {
+            [Java Backend For Frontend] as JavaBFF1
+        }
+    }
+}
+node "OpenShift" as OS #LightSkyBlue {
+    node "IBM Cloud pak for Integration" as IntegrationTier #LightSkyBlue {
+        node "IBM API Connect" as APICCluster <<execution environment>> {
+            port rest as apicport
+            [IBM API Connect Gateway] as APICGateway
+        }
+
+        package "API Connect Artifacts" as APICD #LightSkyBlue{
+            artifact "API Definition" <<Artifact>>
+            artifact "Consumers" <<Artifact>>
+            artifact "Apps" <<Artifact>>
+        }
+
+        node "IBM App Connect Enterprise" as ACECluster <<execution environment>>{
+            port  rest as intsoutboud
+            node "Integration Server" as ACERuntime
+         
+        }
+
+        package "APP Connect Artifacts" as ACED{
+            artifact "BAR file" <<Artifact>>
+            artifact "Property file" <<Artifact>>
+            artifact "ESB Policies" <<Artifact>>
+            artifact "TLS Certifacts" <<Artifact>>
+        }
+
+        node "IBM MQ Cluster" as MQCluster <<execution environment>> {
+            port  mqlsnr as listner
+            [IBM MQ Queue Manager 1] as QM1
+        }
+
+        package "IBM MQ Artifacts" as MQD{
+            artifact "Queues/Topics" <<Artifact>>
+        }
+
+        node "IBM ODM Cluster" as ODMCluster <<execution environment>> {
+            port  rest as odmport
+            [IBM ODM Rule Execution Server] as RES
+        }
+        
+        package "ODM Artifacts" as ODMD{
+            artifact "Rule Project/Jar" <<Artifact>>
+            artifact "Properties file" <<Artifact>>
+            artifact "Decision Service Domains xls" <<Artifact>>
+        }
+    }
+}
+node "Database Tier" as DatabaseTier #LightSkyBlue{
+    node "SQL Server Cluster" as SQLCluster <<execution environment>> {
+        port ag_lsnr
+        port rw_lsnr
+        database "HRSD Replica Database" as HRSDReplica <<SQL Server>>
+        database "QIWA Database" as QIWADB <<SQL Server>>
+        database "Config Database" as ConfigDB <<SQL Server>>
+        database "Payment Database" as PaymentDB <<SQL Server>>
+    }
+     package "DB Artifacts" as DBD{
+            artifact "DDL,SPS,Data,Relations" <<Artifact>>
+        }
+}
+
+node "DMZ" as DMZ #LightSkyBlue{
+     port tcp as route
+     node "DataPower Gateway Cluster" as DPCluster <<execution environment>> {
+            port "REST/SOAP" as dpport
+            [DataPower Gateway 1] as DP1 <<device>>
+      }
+
+      package "DataPower Deliverables" as DPD{
+        artifact "MPG/WSP Archived File" <<Artifact>>
+      }
+}
+
+
+package "Deployment machine - DevOps" as devops#LightSkyBlue{
+    node "Deployment Pipeline - CI/CD"
+}
+
+' Deployment connections
+WebServer1 --> JavaBFF1 : "HTTP/REST"
+JavaBFF1 --> apicport : "HTTPS/REST"
+
+APICD -[dashed]-^ APICGateway : "deploy"
+APICGateway --> intsoutboud : "HTTPS"
+ACED -[dashed]left-^ ACERuntime : "deploy" 
+ACERuntime -down-> listner : "AMQP"
+MQD -[dashed]up-^ QM1 : "deploy"
+ACERuntime --> odmport : "HTTPS"
+ODMD -[dashed]-^ RES : "deploy"
+ACERuntime -up-> route : "HTTPS"
+route --> dpport: "HTTPS"
+DPD -[dashed]-^ DP1 : "deploy"
+ACERuntime --> rw_lsnr : "JDBC/ODBC"
+ACERuntime --> ag_lsnr : "JDBC/ODBC"
+
+devops -[dashed]right-^ MQD : "deploy"
+devops -[dashed]right-^ ACED: "deploy"
+
+@enduml
