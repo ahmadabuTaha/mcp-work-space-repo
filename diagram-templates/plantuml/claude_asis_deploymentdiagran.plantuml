@@ -14,7 +14,7 @@ node "Web Server Tier" as WebTier #LightSkyBlue{
 
 node "Application Server Tier" as AppTier #LightSkyBlue{
     node "App Server 1" as AS1 <<execution environment>> {
-        [WebSphere/JBoss] as AppServer1
+        [Application Server] as AppServer1
         artifact "Contract BFF EAR" as BFFEar1 {
             [Java Backend For Frontend] as JavaBFF1
         }
