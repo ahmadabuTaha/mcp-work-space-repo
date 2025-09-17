@@ -5,79 +5,102 @@ title  AS-IS Component Diagram Template
 
 actor "User" as Actor
 
-package "Frontend Layer" {
-    component [Frontend SPA] as SPA
+package "Frontend Layer"#pink {
+    interface REST as spaport
+    component [Frontend SPA] as SPA #Lavender
     interface "<<HTTP>>" as bff_Interface
-    component "Backend For Frontend" as BFF
+    component "Backend For Frontend" as BFF #Lavender
 }
 
-package "IBM Integration Platform" {
-    component "IBM API Connect" as APIConnect{
+package "IBM Integration Platform" #pink{
+    component "IBM API Connect" as APIConnect #Lavender {
+       port REST as apicport
       component "API" as api
     }
-    component "IBM App Connect" as AppConnect{
+    component "IBM App Connect" as AppConnect #Lavender{
+      port REST as aceport
       component "Integration Server" as is{
+        
         component "App" as service
       }
     }
-    component "IBMMQ"{
+    component "IBMMQ" #Lavender{
+       port TCP as mqport
       component "Queue_Manager"
     }
     
-    component "IBMODM"{
-
+    component "IBMODM" #Lavender{
+       port REST as odmport
       component "Rule Server" as RuleServer
     }
 }
 
-package "DMZ"{
-  component "DataPower" as DataPower
+package "DMZ"#pink{
+   
+  component "DataPower" as DataPower #Lavender{
+    port "REST/SOAP" as dpport
+    port  "TCP/IP" as tcpport
+  }
+  
+  
 }
 
-package "Database" {
-  component "QIWA"
-  component "HRSD Replica" as Replica
-  component "Payments"
+package "Database" #pink{
+  interface "Database Interface" as qdbint
+ component "QIWA Database" as qdb #Lavender{
+   port "read only" as ag_lsnr
+   port  "read-write" as rw_lsnr
+   
+  database "QIWA" #Lavender
+  database "HRSD Replica" as Replica #Lavender
+  database "Payments" #Lavender
+ }
+  
 }
-
-package "HRSD"{
+interface "HRSD Interface" as hrsdint
+package "HRSD" #LightGray{
   component "QIWA Datapower" as HRSDDP
   component "HRSD Database" as HRSDDB
   component "HRSD Backend" as HRSD_Backend
   
-
 }
-
-package "GSN"{
+interface "REST/SOAP" as gsnint
+package "GSN" #LightGray{
   component "NIC" as NIC
   component "GOSI" as GOSI
   component "MOC" as MOC
   component "MOF" as MOF
   component "Other Agencies" as othersGSN
 }
-
-package "Internet"{
+interface "REST/SOAP" as internet_int
+package "Internet" #LightGray{
   component "Third parties" as tp
 }
 
 ' Flow connections
 
-Actor --> SPA : "<<HTTP>>"
-SPA -->bff_Interface : <<HTTP>>
+Actor --( spaport : "<<HTTP>>"
+spaport -->  SPA: "<HTTP>"
+SPA --(bff_Interface : <<HTTP>>
 BFF -up- bff_Interface
-BFF --> APIConnect : "<<HTTP>>"
-APIConnect --> AppConnect : "<HTTP>>"
-AppConnect -down-> IBMMQ : "<<AMQP>>"
+BFF --> apicport : "<<HTTP>>"
+APIConnect --> aceport : "<HTTP>>"
+AppConnect -down-> mqport : "<<AMQP>>"
 
 
-AppConnect -down-> IBMODM : "<<HTTP>>"
-AppConnect -down-> Database : "ODBC/JDBC"
-AppConnect --down-> DataPower : "<<HTTP>>"
-DataPower-down->HRSDDP : "<<HTTP>>"
+AppConnect -down-> odmport : "<<HTTP>>"
+AppConnect -left-> qdbint : "ODBC/JDBC"
+rw_lsnr-up-(qdbint : "ODBC/JDBC"
+ag_lsnr-up-(qdbint : "ODBC/JDBC"
+AppConnect --down-> dpport : "<<HTTP>>"
+DataPower-down->hrsdint : "<<HTTP>>"
+HRSDDP-up-(hrsdint: "<HTTP>"
 HRSDDP-->HRSD_Backend : "<<HTTP>>"
 HRSDDP-->HRSDDB : "<<ODBC>"
-HRSDDP-down-->GSN :"<<HTTP>>"
-HRSDDB-up- DataPower : "<<ODBC>>"
-DataPower-up-Replica : "<<ODBC>>"
-DataPower--down-->tp : "<<HTTP>>"
+HRSDDP-down->gsnint :"<<HTTP>>"
+GSN--(gsnint: "<HTTP>>"
+HRSDDB-up-(hrsdint : "<<ETL>>"
+tcpport-up-Replica : "<<ODBC>>"
+DataPower--down-->internet_int : "<<HTTP>>"
+tp-up-(internet_int : "<<IPSEC>>"
 @enduml
